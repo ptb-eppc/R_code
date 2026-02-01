@@ -1,0 +1,66 @@
+#States by change from 2019 to 2024 in share of population under 6 and school age (5-17)
+
+ACS2024 <- getCensus(name = "acs/acs5",
+                     vars = c("NAME", 
+                              "B01001_001E", #totalpop
+                              "B01001_003E", "B01001_004E","B01001_005E","B01001_006E", #boys 0-17
+                              "B01001_027E", "B01001_028E","B01001_029E","B01001_030E", #girls 0-17),
+                              ),                    
+                     region = "state:*", 
+                     vintage = 2024)
+
+ACS2019 <- getCensus(name = "acs/acs5",
+                     vars = c("NAME", 
+                              "B01001_001E", #totalpop
+                              "B01001_003E", "B01001_004E","B01001_005E","B01001_006E", #boys 0-17
+                              "B01001_027E", "B01001_028E","B01001_029E","B01001_030E", #girls 0-17
+                              ),
+                     region = "state:*", 
+                     vintage = 2019)
+
+ACS_24 <- ACS2024 |>  
+  reframe("Name" = NAME,
+          "State" = state,
+          totalpop24 = B01001_001E,
+          totalunder524 = (B01001_003E+B01001_027E),
+          totalschool24 = (B01001_004E+B01001_005E+B01001_006E+B01001_028E+B01001_029E+B01001_030E),
+          totalkid24 = totalunder524+totalschool24,
+          shareunder524 = totalunder524/totalpop24,
+          shareschool524 = totalschool24/totalpop24,
+          kidshare24 = totalkid24/totalpop24)
+
+ACS_19 <- ACS2019 |>  
+  reframe("Name" = NAME,
+          "State" = state,
+          totalpop19 = B01001_001E,
+          totalunder519 = (B01001_003E+B01001_027E),
+          totalschool19 = (B01001_004E+B01001_005E+B01001_006E+B01001_028E+B01001_029E+B01001_030E),
+          totalkid19 = totalunder519+totalschool19,
+          shareunder519 = totalunder519/totalpop19,
+          shareschool519 = totalschool19/totalpop19,
+          kidshare19 = totalkid19/totalpop19)
+
+X2024states <- read_csv("2024-electoral-states.csv")
+USPS_abbrev <- read_excel("~/Documents/R-2024/USPS_abbrev.xlsx")
+ACS1924 <- merge(ACS_19, ACS_24, by=c("Name", "State"))
+ACSstates <- merge(ACS1924, USPS_abbrev, by.x=("Name"), by.y=("State"))
+ACSstates <- merge(ACSstates, X2024states, by.x=("USPS"), by.y=("ST"))
+
+ACSstates2 <- ACSstates |> 
+  filter(USPS!="PR") |>
+  reframe(
+    Name = Name.x,
+    USPS = USPS,
+    popchg = totalpop24 - totalpop19,
+    popchgshare = totalpop24/totalpop19,
+    under6chg = totalunder524 - totalunder519,
+    under6share = totalunder524 / totalunder519,
+    schoolchg = totalschool24 - totalschool19,
+    schoolshare = totalschool24 / totalschool19,
+    totalchildchg = totalkid24 - totalkid19,
+    totalchildshare = totalkid24 / totalkid19,
+    vote2024 = Winner_2024) 
+
+ACSstates2 |> 
+  ggplot() +
+  geom_text(aes(x = popchgshare, y = under6share, label = USPS, color = vote2024))
